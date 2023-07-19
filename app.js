@@ -24,16 +24,23 @@ const appBasePath = process.env.APP_BASE_PATH;
 const callbackPath = "/callback";
 // Path where the user is redirected after authenticating/authorizing at PingOne
 const redirectURI = appBasePath + ":" + port + callbackPath;
-// The specific kind of access the client is requesting of the user
-// openid - signals an OIDC request
-// profile - access to user's basic info
-// p1:read:user - access to read the user's PingOne identity's attributes
-const scope = "openid profile p1:read:user";
+// Scopes specify what kind of access the client is requesting from the user.
+// These are some standard OIDC scopes.
+//   openid - signals an OIDC request; default resource on oauth/oidc app
+// connection
+// These need to be added as resources to the app connection or it will be
+// ignored by the authorization server. Once that's done, you can then append
+// it to your scopes variable using a whitespace to separate it from any other
+// scopes.
+//   profile - access to basic user info;
+//   p1:read:user - access to read the user's PingOne identity's attributes (a
+// PingOne - specific scope)
+const scopes = "openid";
 // The OAuth 2.0/OIDC grant type in the authorization request and the token
 // request.
 // i.e., code, authorization_code - Authorization Code;
-const responseType = "code";
 const grantType = "authorization_code";
+const responseType = "code";
 
 // Root path presents link to trigger authorize request.
 app.get("/", (req, res) => {
@@ -43,7 +50,7 @@ app.get("/", (req, res) => {
   // Add query parameters to authorize endpoint to make the authorize request.
   authzReq.searchParams.append("response_type", responseType);
   authzReq.searchParams.append("client_id", clientID);
-  authzReq.searchParams.append("scope", scope);
+  authzReq.searchParams.append("scope", scopes);
   authzReq.searchParams.append("redirect_uri", redirectURI);
 
   // Send a link which, when clicked, will initiate the authorization request.

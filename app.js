@@ -1,16 +1,19 @@
-// Allows us to read values from ".env" file.
-require("dotenv").config();
-
-// Express setup config
+/**
+ * Express Server Config and Initialization
+ */
 const express = require("express");
 const app = express();
 const port = 3000;
 
+// Allows us to read values from ".env" file.
+require("dotenv").config();
+
 /**
- * First, copy the .env.EXAMPLE file to a .env file and fill in your values.
+ * First, copy the .env.EXAMPLE file to a .env file.
+ * Then, fill in your values in that file.
  */
 // PingOne auth base url
-const authBasePath = process.env.PINGONE_AUTH_BASE_PATH;
+const authBaseURL = process.env.PINGONE_AUTH_BASE_URL;
 // PingOne environment ID
 const envID = process.env.PINGONE_ENV_ID;
 // PingOne client ID of the app connection
@@ -18,36 +21,66 @@ const clientID = process.env.PINGONE_CLIENT_ID;
 // PingOne client secret of the app connection
 const clientSecret = process.env.PINGONE_CLIENT_SECRET;
 // Express app base url
-const appBasePath = process.env.APP_BASE_PATH;
+const appBaseURL = process.env.APP_BASE_URL;
 
-// The url path for the app to listen to. It should match the redirect uri.
+/**
+ * Some constants we'll need for an OAuth/OIDC Authorization Code flow.
+ */
+// PingOne authorize endpoint
+const authorizeEndpoint = "/as/authorize";
+// PingOne token endpoint
+const tokenEndpoint = "/as/token";
+// The url path made available for when the user is redirected back from the
+// authorization server, PingOne.
 const callbackPath = "/callback";
-// Path where the user is redirected after authenticating/authorizing at PingOne
-const redirectURI = appBasePath + ":" + port + callbackPath;
-// The specific kind of access the client is requesting of the user
-// openid - signals an OIDC request
-// profile - access to user's basic info
-// p1:read:user - access to read the user's PingOne identity's attributes
-const scope = "openid profile p1:read:user";
-// The OAuth 2.0/OIDC grant type in the authorization request and the token
-// request.
-// i.e., code, authorization_code - Authorization Code;
-const responseType = "code";
+// The full url where the user is redirected after authenticating/authorizing
+// with PingOne.
+const redirectURI = appBaseURL + ":" + port + callbackPath;
+// Scopes specify what kind of access the client is requesting from the user.
+// These are some standard OIDC scopes.
+//   openid - signals an OIDC request; default resource on oauth/oidc app
+// connection
+// These need to be added as resources to the app connection or it will be
+// ignored by the authorization server. Once that's done, you can then append
+// it to your scopes variable using a whitespace to separate it from any other
+// scopes.
+//   profile - access to basic user info;
+//   p1:read:user - access to read the user's PingOne identity's attributes (a
+// PingOne - specific scope)
+const scopes = "openid";
+// The OAuth 2.0 grant type and associated type of response expected from the
+// /authorize endpoint. The Authorization Code flow is recommended as the best
+// practice in most cases
+// https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics-23
 const grantType = "authorization_code";
+const responseType = "code";
 
-// Root path presents link to trigger authorize request.
+/**
+ * Create the authorization request.
+ * When someone navigates to the root path,
+ * "/", a basic link with the text "Login" is sent to be rendered by the
+ * browser.
+ * Clicking the link will redirect the user to PingOne with the
+ * authorization request parameters.
+ * The user is then prompted to authenticate.
+ */
 app.get("/", (req, res) => {
-  // Authorize endpoint
-  const path = envID + "/as/authorize";
-  const authzReq = new URL(path, authBasePath);
-  // Add query parameters to authorize endpoint to make the authorize request.
-  authzReq.searchParams.append("response_type", responseType);
-  authzReq.searchParams.append("client_id", clientID);
-  authzReq.searchParams.append("scope", scope);
-  authzReq.searchParams.append("redirect_uri", redirectURI);
+  // authorize url path
+  const authzPath = envID + authorizeEndpoint;
+  // authorize request starting with the url origin and path.
+  const authzReq = new URL(authzPath, authBaseURL);
 
-  // Send a link which, when clicked, will initiate the authorization request.
-  res.send("<a href=" + authzReq.toString() + ">Login</a>");
+  // Add query parameters to define the authorize request
+  authzReq.searchParams.append("redirect_uri", redirectURI);
+  authzReq.searchParams.append("client_id", clientID);
+  authzReq.searchParams.append("scope", scopes);
+  authzReq.searchParams.append("response_type", responseType);
+
+  // Send a link to the browser to render with the text "Login".
+  // When the link is clicked the user is redirected to the authorization
+  // server, PingOne, at the authorize endpoint. The query parameters are read
+  // by PingOne and combine to make the authorization request.
+  res.status(200).send("<a href=" + authzReq.toString() + ">Login</a>");
 });
 
 // Callback path for when the user is redirected back to the app after
@@ -104,13 +137,13 @@ app.get(callbackPath, async (req, res) => {
   };
 
   // PingOne token endpoint
-  const tokenEndpoint = authBasePath + "/" + envID + "/as/token";
+  const tokenEndpointURL = authBaseURL + "/" + envID + tokenEndpoint;
 
   // Make the exchange for tokens by calling the /token endpoint and sending the
   // authorization code.
   try {
     // Send the token request and get the response body in JSON.
-    const response = await fetch(tokenEndpoint, requestOptions);
+    const response = await fetch(tokenEndpointURL, requestOptions);
     const result = await response.json();
 
     // For demoing purposes, forward the json response from the token endpoint.
@@ -128,6 +161,6 @@ app.get(callbackPath, async (req, res) => {
 // Console message when server is ready.
 app.listen(port, () => {
   console.log(
-    `App listening on port ${port}. Navigate to ${appBasePath} in a browser.`
+    `The app has started. Navigate to ${appBaseURL}:${port} in a browser.`
   );
 });

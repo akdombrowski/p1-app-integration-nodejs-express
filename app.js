@@ -7,20 +7,38 @@ const app = express();
 const port = 3000;
 
 /**
- * First, copy the .env.EXAMPLE file to a .env file and fill in your values.
+ * 
+ * 
+ * 
+ * To start, copy the '.env.EXAMPLE' file
+ * And, rename the new file as '.env'
+ * Then, fill in your values.
+ *
+ * On how to get those values...
+ * If you don't already have a PingOne account, you can start a trial at: 
+ * pingidentity.com/en/try-ping
+ * 
+ * 
+ * 
+ *
  */
-// PingOne auth base url
+// The base url of the authorization server, PingOne 
 const authBasePath = process.env.PINGONE_AUTH_BASE_PATH;
-// PingOne environment ID
+// PingOne Environment ID
 const envID = process.env.PINGONE_ENV_ID;
-// PingOne client ID of the app connection
+// PingOne App Connection's Client ID
 const clientID = process.env.PINGONE_CLIENT_ID;
-// PingOne client secret of the app connection
+// PingOne App Connection's Client secret
 const clientSecret = process.env.PINGONE_CLIENT_SECRET;
-// Express app base url
+// The base url of this Express app
 const appBasePath = process.env.APP_BASE_PATH;
+/**
+ *
+ *
+ *
+ */
 
-// The url path for the app to listen to. It should match the redirect uri.
+// This will be the redirect uri.
 const callbackPath = "/callback";
 // Path where the user is redirected after authenticating/authorizing at PingOne
 const redirectURI = appBasePath + ":" + port + callbackPath;
@@ -42,7 +60,10 @@ const scopes = "openid";
 const grantType = "authorization_code";
 const responseType = "code";
 
-// Root path presents link to trigger authorize request.
+/**
+ * The root path.
+ * It serves a link that when clicked triggers the authorize request.
+ */
 app.get("/", (req, res) => {
   // Authorize endpoint
   const path = envID + "/as/authorize";
@@ -57,13 +78,18 @@ app.get("/", (req, res) => {
   res.send("<a href=" + authzReq.toString() + ">Login</a>");
 });
 
-// Callback path for when the user is redirected back to the app after
-// authenticating/authorizing at PingOne
+/**
+ * Callback path that serves as the location where the user is redirected after
+ * authenticating with the authorization server, PingOne. If the user
+ * successfully authenticates/authorizes with the authorization server, they
+ * will be redirected here with an authorization code.
+ */
 app.get(callbackPath, async (req, res) => {
-  // Try to parse authorization code from the query parameters.
+  // Try to parse authorization code from the query parameters of the url.
   const authorizationCode = req.query?.code;
 
-  // Send error if the authorization code was not found.
+  // Send error and a link to return home if the authorization code was not
+  // found in query params.
   if (!authorizationCode) {
     const errorMsg =
       "Expected authorization code in query parameters.\n" + req.url;
@@ -87,9 +113,13 @@ app.get(callbackPath, async (req, res) => {
     "Basic " + Buffer.from(clientID + ":" + clientSecret).toString("base64");
   headers.append("Authorization", authzHeader);
 
+  /**
+   * Set body parameters
+   */
   // Use URLSearchParams because we're using
   // "application/x-www-form-urlencoded".
   const urlBodyParams = new URLSearchParams();
+
   // The grant type is the OAuth 2.0/OIDC grant type that the PingOne app
   // connection is configured to accept. This example is set up for
   // Authorization Code.
@@ -107,14 +137,15 @@ app.get(callbackPath, async (req, res) => {
     method: "POST",
     headers: headers,
     body: urlBodyParams,
-    // redirect: "follow",
   };
 
   // PingOne token endpoint
   const tokenEndpoint = authBasePath + "/" + envID + "/as/token";
 
-  // Make the exchange for tokens by calling the /token endpoint and sending the
-  // authorization code.
+  /**
+   * Make the exchange for tokens by calling the /token endpoint and sending the
+   * authorization code.
+   */
   try {
     // Send the token request and get the response body in JSON.
     const response = await fetch(tokenEndpoint, requestOptions);
